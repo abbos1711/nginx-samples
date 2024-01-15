@@ -1,0 +1,90 @@
+# HTTP server configuration
+server {
+    listen 80;
+    server_name example.com;
+
+    # Redirect HTTP to HTTPS
+    return 301 https://$host$request_uri;
+}
+
+# HTTPS server configuration
+server {
+    listen 443 ssl http2;
+    server_name example.com;
+
+    # SSL/TLS configuration
+    ssl_certificate /path/to/ssl_certificate.crt;
+    ssl_certificate_key /path/to/ssl_certificate.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers 'EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH';
+    ssl_prefer_server_ciphers on;
+
+    # Security headers
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' cdn.example.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; frame-src 'none'; object-src 'none'";
+    add_header X-XSS-Protection "1; mode=block";
+    add_header X-Content-Type-Options "nosniff";
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload";
+    
+    # Limit connections and rate limiting
+    limit_req_zone $binary_remote_addr zone=req_limit_per_ip:10m rate=100r/s;
+    limit_req zone=req_limit_per_ip burst=200;
+    
+    # IP whitelisting and blacklisting
+    # Whitelist trusted IP addresses
+    allow 192.168.0.0/24;
+    # Blacklist known malicious IP addresses
+    deny 1.2.3.4;
+    deny 5.6.7.0/24;
+    
+    # Location block for public files
+    location /public {
+        # Allow access to public files
+        allow all;
+    }
+    
+    # Location block for sensitive URLs
+    location /admin {
+        # Allow access only from specific IP addresses or CIDR ranges
+        allow 192.168.0.0/24;
+        deny all;
+        # Additional access controls for admin URLs
+        # ...
+    }
+    
+    # DDoS protection and rate limiting for specific URLs
+    location /api {
+        limit_req zone=req_limit_per_ip burst=100;
+        # Additional security measures for API endpoints
+        # ...
+    }
+    
+    # Block common hacker tools and patterns
+    location ~* "(wp-admin|phpmyadmin|myadmin|mysql|database|admin|login|wp-login|xmlrpc)\.(php|asp|aspx|jsp|sh|py)$" {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+    
+    # Prevent access to hidden files
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+    
+    # Additional location blocks and configurations
+    # ...
+}
+
+# Limit connection zones
+http {
+    # Enable Nginx Rate Limiting Module
+    limit_req_status 429;
+    limit_req_zone $binary_remote_addr zone=ddos_limit_per_ip:10m rate=100r/s;
+    limit_req_zone $binary_remote_addr zone=ddos_limit_per_uri:10m rate=50r/s;
+    
+    # Error and access log files
+    error_log /var/log/nginx/error.log;
+    access_log /var/log/nginx/access.log;
+}
